@@ -1,0 +1,11 @@
+pin1: dr
+pin2: cd
+pin4: am
+pin5: tx_en
+pin6: pwr_up
+pin7: ce
+pin14: sck
+pin15: mosi
+pin16: miso
+pin18: gnd
+pin36: vcc
