@@ -7,7 +7,7 @@
 
 use core::str::from_utf8;
 
-use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER};
+use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
@@ -21,6 +21,15 @@ use embassy_time::Duration;
 use embedded_io_async::Write;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
+
+pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
+    embassy_rp::binary_info::rp_program_name!(c"WiFi AP"),
+    embassy_rp::binary_info::rp_program_description!(
+        c"Starts a simple TCP server on a self-hosted WiFi AP called cyw43."
+    ),
+    embassy_rp::binary_info::rp_cargo_version!(),
+    embassy_rp::binary_info::rp_program_build_attribute!(),
+];
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -53,7 +62,7 @@ async fn main(spawner: Spawner) {
     let spi = PioSpi::new(
         &mut pio.common,
         pio.sm0,
-        DEFAULT_CLOCK_DIVIDER,
+        RM2_CLOCK_DIVIDER,
         pio.irq0,
         cs,
         p.PIN_24,
