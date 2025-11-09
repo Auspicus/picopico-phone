@@ -26,3 +26,6 @@ cyw43-pio = "0.8.0"
 defmt = "1.0.1"
 cyw43 = "0.5.0"
 static_cell = "2.1.1"
+embedded-io-async = { version = "0.6.1", features = ["defmt-03"] }
+embassy-net = { version = "0.7.1", features = ["defmt", "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6", "multicast"] }
+heapless = "0.8"
