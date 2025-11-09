@@ -7,20 +7,22 @@ edition = "2021"
 cortex-m = "0.7.6"
 cortex-m-rt = "0.7.0"
 
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "dc18ee2", features = [
+embassy-executor = { version = "0.9.1", features = [
   "arch-cortex-m",
   "executor-thread",
   "defmt",
-  "integrated-timers",
 ] }
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3" }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "dc18ee2" }
-embassy-rp = { git = "https://github.com/embassy-rs/embassy", rev = "dc18ee2", features = [
+embassy-time = { version = "0.5.0" }
+embassy-rp = { version = "0.8.0", features = [
   "defmt",
   "time-driver",
   "critical-section-impl",
   "rp235xa",
   "binary-info",
 ] }
-
+cyw43-pio = "0.8.0"
+defmt = "1.0.1"
+cyw43 = "0.5.0"
+static_cell = "2.1.1"
