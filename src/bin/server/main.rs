@@ -6,18 +6,17 @@
 //! Creates an Access point Wifi network and creates a TCP endpoint on port 1234.
 
 use core::str::from_utf8;
-
-use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
+use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config, StackResources};
-use embassy_rp::bind_interrupts;
 use embassy_rp::clocks::RoscRng;
-use embassy_rp::gpio::{Level, Output};
+use embassy_rp::gpio::{Input, Level, Output, Pull};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
-use embassy_time::Duration;
+use embassy_rp::{bind_interrupts, clocks};
+use embassy_time::{Duration, Instant, Timer};
 use embedded_io_async::Write;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
@@ -47,6 +46,15 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
     runner.run().await
 }
 
+#[embassy_executor::task]
+async fn pin_check_task(p: Input<'static>) -> ! {
+    loop {
+        let msg = if p.is_high() { "high" } else { "low" };
+        info!("pin0: {}", msg);
+        Timer::after(Duration::from_secs(1)).await
+    }
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     info!("Hello World!");
@@ -54,8 +62,8 @@ async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     let mut rng = RoscRng;
 
-    let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
     let mut pio = Pio::new(p.PIO0, Irqs);
@@ -69,6 +77,11 @@ async fn main(spawner: Spawner) {
         p.PIN_29,
         p.DMA_CH0,
     );
+
+    let mut trigger = Input::new(p.PIN_0, Pull::Up);
+    // spawner
+    //     .spawn(pin_check_task(trigger))
+    //     .expect("Failed to start pin read task.");
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -105,51 +118,42 @@ async fn main(spawner: Spawner) {
         .spawn(net_task(runner))
         .expect("Failed to spawn embassy-net task");
 
-    //control.start_ap_open("cyw43", 5).await;
     control.start_ap_wpa2("cyw43", "password", 5).await;
-
-    // And now we can use it!
 
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
-    let mut buf = [0; 4096];
+    // let mut msg_buffer = [0; 4096];
 
     loop {
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(10)));
+        socket.set_timeout(Some(Duration::from_secs(20)));
+        socket.set_keep_alive(Some(Duration::from_secs(10)));
 
         control.gpio_set(0, false).await;
-        info!("Listening on TCP:1234...");
+        info!("listening on tcp/169.254.1.1:1234");
         if let Err(e) = socket.accept(1234).await {
             warn!("accept error: {:?}", e);
             continue;
         }
 
-        info!("Received connection from {:?}", socket.remote_endpoint());
+        info!("received connection from {:?}", socket.remote_endpoint());
         control.gpio_set(0, true).await;
+        let mut last_sent: Instant = Instant::from_ticks(0);
 
         loop {
-            let n = match socket.read(&mut buf).await {
-                Ok(0) => {
-                    warn!("read EOF");
-                    break;
+            trigger.wait_for_rising_edge().await;
+            info!("rising edge detected");
+            let now = Instant::now();
+            if now.duration_since(last_sent).as_millis() > 5000 {
+                last_sent = now;
+                match socket.write_all(b"high\n").await {
+                    Ok(()) => {}
+                    Err(e) => {
+                        warn!("write error: {:?}", e);
+                        break;
+                    }
                 }
-                Ok(n) => n,
-                Err(e) => {
-                    warn!("read error: {:?}", e);
-                    break;
-                }
-            };
-
-            info!("rxd {}", from_utf8(&buf[..n]).unwrap());
-
-            match socket.write_all(&buf[..n]).await {
-                Ok(()) => {}
-                Err(e) => {
-                    warn!("write error: {:?}", e);
-                    break;
-                }
-            };
+            }
         }
     }
 }

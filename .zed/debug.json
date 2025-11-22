@@ -1,0 +1,10 @@
+[
+  {
+    "label": "Launch probe-rs debugging",
+    "adapter": "probe-rs",
+    "request": "launch",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "server": "127.0.0.1:50000",
+    "coreConfigs": []
+  }
+]
