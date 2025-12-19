@@ -1,22 +1,20 @@
 #![no_std]
 #![no_main]
 #![allow(async_fn_in_trait)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::unwrap_used)]
 
-//! This example uses the RP Pico W board Wifi chip (cyw43).
-//! Creates an Access point Wifi network and creates a TCP endpoint on port 1234.
-
-use core::str::from_utf8;
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config, StackResources};
+use embassy_rp::bind_interrupts;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
-use embassy_rp::{bind_interrupts, clocks};
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration, Instant};
 use embedded_io_async::Write;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
@@ -46,24 +44,12 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
     runner.run().await
 }
 
-#[embassy_executor::task]
-async fn pin_check_task(p: Input<'static>) -> ! {
-    loop {
-        let msg = if p.is_high() { "high" } else { "low" };
-        info!("pin0: {}", msg);
-        Timer::after(Duration::from_secs(1)).await
-    }
-}
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    info!("Hello World!");
-
-    let p = embassy_rp::init(Default::default());
-    let mut rng = RoscRng;
-
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    let p = embassy_rp::init(Default::default());
+    let mut rng = RoscRng;
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);
     let mut pio = Pio::new(p.PIO0, Irqs);
@@ -79,16 +65,13 @@ async fn main(spawner: Spawner) {
     );
 
     let mut trigger = Input::new(p.PIN_0, Pull::Up);
-    // spawner
-    //     .spawn(pin_check_task(trigger))
-    //     .expect("Failed to start pin read task.");
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
     let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    spawner
-        .spawn(cyw43_task(runner))
-        .expect("Failed to start cyw43 task");
+    if spawner.spawn(cyw43_task(runner)).is_err() {
+        crate::panic!("failed to start wifi task")
+    }
 
     control.init(clm).await;
     control
@@ -114,16 +97,14 @@ async fn main(spawner: Spawner) {
         seed,
     );
 
-    spawner
-        .spawn(net_task(runner))
-        .expect("Failed to spawn embassy-net task");
+    if spawner.spawn(net_task(runner)).is_err() {
+        crate::panic!("failed to start network stack")
+    }
 
     control.start_ap_wpa2("cyw43", "password", 5).await;
 
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
-    // let mut msg_buffer = [0; 4096];
-
     loop {
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
         socket.set_timeout(Some(Duration::from_secs(20)));
