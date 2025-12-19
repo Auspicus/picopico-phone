@@ -12,7 +12,7 @@ use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_time::{Duration, Timer};
 use picopico_phone::music::ode_to_joy;
-use picopico_phone::net;
+use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
 
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
@@ -32,12 +32,14 @@ async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     let (stack, mut control) = net::init_cyw43(
         spawner,
-        p.PIN_23,
-        p.PIN_24,
-        p.PIN_25,
-        p.PIN_29,
-        p.PIO0,
-        p.DMA_CH0,
+        Cyw43Peripherals {
+            pin_23: p.PIN_23,
+            pin_24: p.PIN_24,
+            pin_25: p.PIN_25,
+            pin_29: p.PIN_29,
+            pio_0: p.PIO0,
+            dma_ch0: p.DMA_CH0,
+        },
         Ipv4Cidr::new(Ipv4Address::new(169, 254, 1, 2), 16),
     )
     .await;

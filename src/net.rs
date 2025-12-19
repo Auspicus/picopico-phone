@@ -29,31 +29,35 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
     runner.run().await
 }
 
+pub struct Cyw43Peripherals {
+    pub pin_23: Peri<'static, PIN_23>,
+    pub pin_24: Peri<'static, PIN_24>,
+    pub pin_25: Peri<'static, PIN_25>,
+    pub pin_29: Peri<'static, PIN_29>,
+    pub pio_0: Peri<'static, PIO0>,
+    pub dma_ch0: Peri<'static, DMA_CH0>,
+}
+
 pub async fn init_cyw43(
     spawner: Spawner,
-    pin_23: Peri<'static, PIN_23>,
-    pin_24: Peri<'static, PIN_24>,
-    pin_25: Peri<'static, PIN_25>,
-    pin_29: Peri<'static, PIN_29>,
-    pio_0: Peri<'static, PIO0>,
-    dma_ch0: Peri<'static, DMA_CH0>,
+    p: Cyw43Peripherals,
     ip: Ipv4Cidr,
 ) -> (Stack<'static>, Control<'static>) {
     let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
 
-    let pwr = Output::new(pin_23, Level::Low);
-    let cs = Output::new(pin_25, Level::High);
-    let mut pio = Pio::new(pio_0, Irqs);
+    let pwr = Output::new(p.pin_23, Level::Low);
+    let cs = Output::new(p.pin_25, Level::High);
+    let mut pio = Pio::new(p.pio_0, Irqs);
     let spi = PioSpi::new(
         &mut pio.common,
         pio.sm0,
         RM2_CLOCK_DIVIDER,
         pio.irq0,
         cs,
-        pin_24,
-        pin_29,
-        dma_ch0,
+        p.pin_24,
+        p.pin_29,
+        p.dma_ch0,
     );
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
