@@ -9,9 +9,6 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
-use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::PIO0;
-use embassy_rp::pio::InterruptHandler;
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_time::{Duration, Timer};
 use picopico_phone::music::ode_to_joy;
@@ -57,40 +54,40 @@ async fn main(spawner: Spawner) {
         warn!("failed to set initial duty cycle")
     }
 
-    info!("waiting for link...");
     stack.wait_link_up().await;
-    info!("after link up...");
-
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
-    info!("created buffers...");
+    let mut msg_buffer = [0; 4096];
     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
     socket.set_timeout(Some(Duration::from_secs(20)));
     socket.set_keep_alive(Some(Duration::from_secs(10)));
-    while let Err(e) = socket
-        .connect(IpEndpoint::new(IpAddress::v4(169, 254, 1, 1), 1234))
-        .await
-    {
-        info!("failed to connect due to {:?}", e);
-        Timer::after(Duration::from_millis(1000)).await;
-    }
 
-    info!("waiting for message...");
-    let mut msg_buffer = [0; 4096];
     loop {
-        match socket.read(&mut msg_buffer).await {
-            Ok(bytes_read) => {
-                if bytes_read == 0 {
+        control.gpio_set(0, false).await;
+        while let Err(e) = socket
+            .connect(IpEndpoint::new(IpAddress::v4(169, 254, 1, 1), 1234))
+            .await
+        {
+            info!("failed to connect due to {:?}", e);
+            Timer::after(Duration::from_millis(1000)).await;
+        }
+        control.gpio_set(0, true).await;
+
+        loop {
+            match socket.read(&mut msg_buffer).await {
+                Ok(bytes_read) => {
+                    if bytes_read == 0 {
+                        break;
+                    }
+
+                    if let Err(e) = ode_to_joy(&mut pwm).await {
+                        warn!("failed to play song due to error {:?}", e);
+                    }
+                }
+                Err(e) => {
+                    warn!("failed to read from socket due to error {:?}", e);
                     break;
                 }
-
-                if let Err(e) = ode_to_joy(&mut pwm).await {
-                    warn!("failed to play song due to error {:?}", e);
-                }
-            }
-            Err(e) => {
-                warn!("failed to read from socket due to error {:?}", e);
-                break;
             }
         }
     }

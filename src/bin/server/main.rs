@@ -46,11 +46,11 @@ async fn main(spawner: Spawner) {
 
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
-    loop {
-        let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(20)));
-        socket.set_keep_alive(Some(Duration::from_secs(10)));
+    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+    socket.set_timeout(Some(Duration::from_secs(20)));
+    socket.set_keep_alive(Some(Duration::from_secs(10)));
 
+    loop {
         control.gpio_set(0, false).await;
         info!("listening on tcp/169.254.1.1:1234");
         if let Err(e) = socket.accept(1234).await {
@@ -58,13 +58,11 @@ async fn main(spawner: Spawner) {
             continue;
         }
 
-        info!("received connection from {:?}", socket.remote_endpoint());
         control.gpio_set(0, true).await;
         let mut last_sent: Instant = Instant::from_ticks(0);
 
         loop {
             trigger.wait_for_rising_edge().await;
-            info!("rising edge detected");
             let now = Instant::now();
             if now.duration_since(last_sent).as_millis() > 5000 {
                 last_sent = now;
