@@ -10,13 +10,12 @@ use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Config, StackResources};
 use embassy_rp::bind_interrupts;
-use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_time::{Duration, Instant};
 use embedded_io_async::Write;
-use static_cell::StaticCell;
+use picopico_phone::net;
 use {defmt_rtt as _, panic_probe as _};
 
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
@@ -46,61 +45,20 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
     let p = embassy_rp::init(Default::default());
-    let mut rng = RoscRng;
-    let pwr = Output::new(p.PIN_23, Level::Low);
-    let cs = Output::new(p.PIN_25, Level::High);
-    let mut pio = Pio::new(p.PIO0, Irqs);
-    let spi = PioSpi::new(
-        &mut pio.common,
-        pio.sm0,
-        RM2_CLOCK_DIVIDER,
-        pio.irq0,
-        cs,
+    let (stack, mut control) = net::init_cyw43(
+        spawner,
+        p.PIN_23,
         p.PIN_24,
+        p.PIN_25,
         p.PIN_29,
+        p.PIO0,
         p.DMA_CH0,
-    );
+        embassy_net::Ipv4Cidr::new(embassy_net::Ipv4Address::new(169, 254, 1, 1), 16),
+    )
+    .await;
 
     let mut trigger = Input::new(p.PIN_0, Pull::Up);
-
-    static STATE: StaticCell<cyw43::State> = StaticCell::new();
-    let state = STATE.init(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    if spawner.spawn(cyw43_task(runner)).is_err() {
-        crate::panic!("failed to start wifi task")
-    }
-
-    control.init(clm).await;
-    control
-        .set_power_management(cyw43::PowerManagementMode::PowerSave)
-        .await;
-
-    // Use a link-local address for communication without DHCP server
-    let config = Config::ipv4_static(embassy_net::StaticConfigV4 {
-        address: embassy_net::Ipv4Cidr::new(embassy_net::Ipv4Address::new(169, 254, 1, 1), 16),
-        dns_servers: heapless::Vec::new(),
-        gateway: None,
-    });
-
-    // Generate random seed
-    let seed = rng.next_u64();
-
-    // Init network stack
-    static RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
-    let (stack, runner) = embassy_net::new(
-        net_device,
-        config,
-        RESOURCES.init(StackResources::new()),
-        seed,
-    );
-
-    if spawner.spawn(net_task(runner)).is_err() {
-        crate::panic!("failed to start network stack")
-    }
-
     control.start_ap_wpa2("cyw43", "password", 5).await;
 
     let mut rx_buffer = [0; 4096];

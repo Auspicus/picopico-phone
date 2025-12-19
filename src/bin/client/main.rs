@@ -10,12 +10,12 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr, StackResources};
-use embassy_rp::bind_interrupts;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
+use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 use heapless::Vec;
 use picopico_phone::music::ode_to_joy;
@@ -40,11 +40,16 @@ const WIFI_NETWORK: &str = "cyw43"; // change to your network SSID
 const WIFI_PASSWORD: &str = "password"; // change to your network password
 
 #[embassy_executor::main]
-async fn main(mut spawner: Spawner) {
-    let mut p = embassy_rp::init(Default::default());
-    let (stack, mut control) = net::get_network_stack(
-        &mut spawner,
-        &mut p,
+async fn main(spawner: Spawner) {
+    let p = embassy_rp::init(Default::default());
+    let (stack, mut control) = net::init_cyw43(
+        spawner,
+        p.PIN_23,
+        p.PIN_24,
+        p.PIN_25,
+        p.PIN_29,
+        p.PIO0,
+        p.DMA_CH0,
         Ipv4Cidr::new(Ipv4Address::new(169, 254, 1, 2), 16),
     )
     .await;
@@ -88,9 +93,9 @@ async fn main(mut spawner: Spawner) {
                     break;
                 }
 
-                if let Err(e) = ode_to_joy(&mut pwm).await {
-                    warn!("failed to play song due to error {:?}", e);
-                }
+                // if let Err(e) = ode_to_joy(&mut pwm).await {
+                //     warn!("failed to play song due to error {:?}", e);
+                // }
             }
             Err(e) => {
                 warn!("failed to read from socket due to error {:?}", e);
