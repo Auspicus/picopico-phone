@@ -5,11 +5,10 @@ use embassy_net::{Ipv4Cidr, Stack, StackResources};
 use embassy_rp::{
     bind_interrupts,
     clocks::RoscRng,
-    dma::Channel,
-    gpio::{Level, Output, Pin},
+    gpio::{Level, Output},
     peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0},
-    pio::{InterruptHandler, Pio, PioPin},
-    Peri, Peripherals,
+    pio::{InterruptHandler, Pio},
+    Peri,
 };
 use heapless::Vec;
 use static_cell::StaticCell;

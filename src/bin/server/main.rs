@@ -4,15 +4,14 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::unwrap_used)]
 
-use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
+use cyw43_pio::PioSpi;
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
-use embassy_net::{Config, StackResources};
 use embassy_rp::bind_interrupts;
-use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_rp::gpio::{Input, Output, Pull};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
-use embassy_rp::pio::{InterruptHandler, Pio};
+use embassy_rp::pio::InterruptHandler;
 use embassy_time::{Duration, Instant};
 use embedded_io_async::Write;
 use picopico_phone::net;

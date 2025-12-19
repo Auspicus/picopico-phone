@@ -5,22 +5,16 @@
 #![deny(clippy::unwrap_used)]
 
 use cyw43::JoinOptions;
-use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
-use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr, StackResources};
-use embassy_rp::clocks::RoscRng;
-use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIO0};
-use embassy_rp::pio::{InterruptHandler, Pio};
+use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
+use embassy_rp::peripherals::PIO0;
+use embassy_rp::pio::InterruptHandler;
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
-use embassy_rp::{bind_interrupts, Peripherals};
+use embassy_rp::bind_interrupts;
 use embassy_time::{Duration, Timer};
-use heapless::Vec;
-use picopico_phone::music::ode_to_joy;
 use picopico_phone::net;
-use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
