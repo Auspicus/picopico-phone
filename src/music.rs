@@ -157,3 +157,122 @@ pub async fn ode_to_joy(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
 
     Ok(())
 }
+
+pub async fn jingle_bells(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
+    let c = tone(1047);
+    let d = tone(1175);
+    let e = tone(1319);
+    let f = tone(1397);
+    let g = tone(1568);
+    let song: [&Note; 25] = [
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 500,
+        }, // bar 1
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 500,
+        }, // bar 2
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &g,
+            time: 250,
+        },
+        &Note {
+            tone: &c,
+            time: 250,
+        },
+        &Note {
+            tone: &d,
+            time: 250,
+        }, // bar 3
+        &Note {
+            tone: &e,
+            time: 1000,
+        }, // bar 4
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+        &Note {
+            tone: &f,
+            time: 250,
+        }, // bar 5
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        }, // bar 6
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &d,
+            time: 250,
+        },
+        &Note {
+            tone: &d,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        }, // bar 7
+        &Note {
+            tone: &d,
+            time: 500,
+        },
+        &Note {
+            tone: &g,
+            time: 500,
+        }, // bar 8
+    ];
+    for note in song {
+        pwm.set_duty_cycle_percent(50)?;
+        pwm.set_config(note.tone);
+        Timer::after(Duration::from_millis(note.time)).await;
+        pwm.set_duty_cycle_percent(0)?;
+        Timer::after(Duration::from_millis(50)).await;
+    }
+
+    Ok(())
+}

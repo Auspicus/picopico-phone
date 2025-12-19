@@ -11,7 +11,7 @@ use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_time::{Duration, Timer};
-use picopico_phone::music::ode_to_joy;
+use picopico_phone::music::{jingle_bells, ode_to_joy};
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
 
@@ -82,8 +82,8 @@ async fn main(spawner: Spawner) {
                         break;
                     }
 
-                    if let Err(e) = ode_to_joy(&mut pwm).await {
-                        warn!("failed to play song due to error {:?}", e);
+                    if jingle_bells(&mut pwm).await.is_err() {
+                        warn!("failed to play song due to error");
                     }
                 }
                 Err(e) => {
