@@ -9,11 +9,12 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
+use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::InterruptHandler;
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
-use embassy_rp::bind_interrupts;
 use embassy_time::{Duration, Timer};
+use picopico_phone::music::ode_to_joy;
 use picopico_phone::net;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -25,10 +26,6 @@ pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
     embassy_rp::binary_info::rp_cargo_version!(),
     embassy_rp::binary_info::rp_program_build_attribute!(),
 ];
-
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
-});
 
 const WIFI_NETWORK: &str = "cyw43"; // change to your network SSID
 const WIFI_PASSWORD: &str = "password"; // change to your network password
@@ -87,9 +84,9 @@ async fn main(spawner: Spawner) {
                     break;
                 }
 
-                // if let Err(e) = ode_to_joy(&mut pwm).await {
-                //     warn!("failed to play song due to error {:?}", e);
-                // }
+                if let Err(e) = ode_to_joy(&mut pwm).await {
+                    warn!("failed to play song due to error {:?}", e);
+                }
             }
             Err(e) => {
                 warn!("failed to read from socket due to error {:?}", e);

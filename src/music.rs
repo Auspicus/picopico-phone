@@ -20,130 +20,130 @@ pub fn tone(target_frequency: u64) -> Config {
 }
 
 pub async fn ode_to_joy(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
-    let c6 = tone(1047);
-    let d6 = tone(1175);
-    let e6 = tone(1319);
-    let f6 = tone(1397);
-    let g6 = tone(1568);
+    let c = tone(1047);
+    let d = tone(1175);
+    let e = tone(1319);
+    let f = tone(1397);
+    let g = tone(1568);
     let song: [&Note; 30] = [
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &f6,
+            tone: &f,
             time: 250,
         },
         &Note {
-            tone: &g6,
+            tone: &g,
             time: 250,
         }, // bar 1
         &Note {
-            tone: &g6,
+            tone: &g,
             time: 250,
         },
         &Note {
-            tone: &f6,
+            tone: &f,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         }, // bar 2
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 250,
         },
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         }, // bar 3
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 500,
         }, // bar 4
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &f6,
+            tone: &f,
             time: 250,
         },
         &Note {
-            tone: &g6,
+            tone: &g,
             time: 250,
         }, // bar 5
         &Note {
-            tone: &g6,
+            tone: &g,
             time: 250,
         },
         &Note {
-            tone: &f6,
+            tone: &f,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         }, // bar 6
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 250,
         },
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 250,
         },
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         },
         &Note {
-            tone: &e6,
+            tone: &e,
             time: 250,
         }, // bar 7
         &Note {
-            tone: &d6,
+            tone: &d,
             time: 250,
         },
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 250,
         },
         &Note {
-            tone: &c6,
+            tone: &c,
             time: 500,
         }, // bar 8
     ];
