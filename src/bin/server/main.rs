@@ -8,7 +8,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_rp::gpio::{Input, Pull};
-use embassy_time::{Duration, Instant};
+use embassy_time::Duration;
 use embedded_io_async::Write;
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
@@ -21,6 +21,8 @@ pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
     embassy_rp::binary_info::rp_cargo_version!(),
     embassy_rp::binary_info::rp_program_build_attribute!(),
 ];
+
+const CYW43_GPIO_LED: u8 = 0;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -42,34 +44,28 @@ async fn main(spawner: Spawner) {
     let mut trigger = Input::new(p.PIN_0, Pull::Up);
     control.start_ap_wpa2("cyw43", "password", 5).await;
 
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
-    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-    socket.set_timeout(Some(Duration::from_secs(20)));
-    socket.set_keep_alive(Some(Duration::from_secs(10)));
-
     loop {
-        control.gpio_set(0, false).await;
+        let mut rx_buffer = [0; 4096];
+        let mut tx_buffer = [0; 4096];
+        let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+        socket.set_timeout(Some(Duration::from_secs(20)));
+        socket.set_keep_alive(Some(Duration::from_secs(10)));
+
+        control.gpio_set(CYW43_GPIO_LED, false).await;
         info!("listening on tcp/169.254.1.1:1234");
         if let Err(e) = socket.accept(1234).await {
             warn!("accept error: {:?}", e);
             continue;
         }
-
-        control.gpio_set(0, true).await;
-        let mut last_sent: Instant = Instant::from_ticks(0);
+        control.gpio_set(CYW43_GPIO_LED, true).await;
 
         loop {
             trigger.wait_for_rising_edge().await;
-            let now = Instant::now();
-            if now.duration_since(last_sent).as_millis() > 5000 {
-                last_sent = now;
-                match socket.write_all(b"high\n").await {
-                    Ok(()) => {}
-                    Err(e) => {
-                        warn!("write error: {:?}", e);
-                        break;
-                    }
+            match socket.write_all(b"rising_edge\n").await {
+                Ok(()) => {}
+                Err(e) => {
+                    warn!("write error: {:?}", e);
+                    break;
                 }
             }
         }
