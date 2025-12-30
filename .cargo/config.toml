@@ -40,3 +40,6 @@ rustflags = [
 # Load an elf, verify it, and execute it
 # runner = "picotool load -v -x -t elf"
 runner = "probe-rs run --chip rp235x"
+
+[env]
+DEFMT_LOG = "debug"

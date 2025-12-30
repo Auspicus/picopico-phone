@@ -2,9 +2,19 @@
   {
     "label": "Launch probe-rs debugging",
     "adapter": "probe-rs",
-    "request": "launch",
+    "request": "attach",
     "cwd": "$ZED_WORKTREE_ROOT",
-    "server": "127.0.0.1:50000",
-    "coreConfigs": []
+    "speed": 24000,
+    "flashingConfig": {
+      "haltAfterReset": true,
+      "flashingEnabled": true
+    },
+    "chip": "RP235x",
+    "coreConfigs": [
+      {
+        "coreIndex": 0,
+        "programBinary": "$ZED_WORKTREE_ROOT/target/thumbv8m.main-none-eabihf/debug/client"
+      }
+    ]
   }
 ]

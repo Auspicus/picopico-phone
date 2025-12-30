@@ -7,11 +7,12 @@
 use cyw43::JoinOptions;
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_futures::join::join;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_time::{Duration, Instant, Timer};
-use picopico_phone::music::{jingle_bells, ode_to_joy};
+use picopico_phone::music::{connection_established, connection_lost, jingle_bells};
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
 
@@ -44,27 +45,25 @@ async fn main(spawner: Spawner) {
         Ipv4Cidr::new(Ipv4Address::new(169, 254, 1, 2), 16),
     )
     .await;
+    control.gpio_set(CYW43_GPIO_LED, false).await;
 
     let mut pwm = Pwm::new_output_a(p.PWM_SLICE2, p.PIN_4, picopico_phone::music::tone(1024));
     if pwm.set_duty_cycle(0).is_err() {
         warn!("failed to set initial duty cycle")
     }
 
-    if jingle_bells(&mut pwm).await.is_err() {
-        warn!("failed to play song due to error");
-    }
-
     let mut last_ring: Instant = Instant::from_ticks(0);
-    'network: loop {
-        control.leave().await;
+    loop {
+        debug!("connecting");
         while let Err(err) = control
             .join(WIFI_NETWORK, JoinOptions::new(WIFI_PASSWORD.as_bytes()))
             .await
         {
             warn!("join failed with status={}", err.status);
+            Timer::after(Duration::from_millis(1000)).await;
         }
         stack.wait_link_up().await;
-        if jingle_bells(&mut pwm).await.is_err() {
+        if connection_established(&mut pwm).await.is_err() {
             warn!("failed to play song due to error");
         }
 
@@ -75,14 +74,15 @@ async fn main(spawner: Spawner) {
         socket.set_timeout(Some(Duration::from_secs(20)));
         socket.set_keep_alive(Some(Duration::from_secs(10)));
 
-        loop {
-            control.gpio_set(CYW43_GPIO_LED, false).await;
-            while let Err(e) = socket
+        'socket: loop {
+            debug!("establishing socket");
+            if let Err(e) = socket
                 .connect(IpEndpoint::new(IpAddress::v4(169, 254, 1, 1), 1234))
                 .await
             {
                 warn!("failed to connect due to {:?}", e);
                 Timer::after(Duration::from_millis(1000)).await;
+                break 'socket;
             }
             control.gpio_set(CYW43_GPIO_LED, true).await;
 
@@ -90,7 +90,7 @@ async fn main(spawner: Spawner) {
                 match socket.read(&mut msg_buffer).await {
                     Ok(bytes_read) => {
                         if bytes_read == 0 {
-                            break 'network;
+                            break 'socket;
                         }
 
                         let now = Instant::now();
@@ -103,10 +103,14 @@ async fn main(spawner: Spawner) {
                     }
                     Err(e) => {
                         warn!("failed to read from socket due to error {:?}", e);
-                        break 'network;
+                        break 'socket;
                     }
                 }
             }
         }
+
+        debug!("connection lost");
+        control.gpio_set(CYW43_GPIO_LED, false).await;
+        let _ = join(connection_lost(&mut pwm), control.leave()).await;
     }
 }

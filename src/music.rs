@@ -276,3 +276,51 @@ pub async fn jingle_bells(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
 
     Ok(())
 }
+
+pub async fn connection_established(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
+    let e = tone(1319);
+    let f = tone(1397);
+    let song: [&Note; 2] = [
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+    ];
+    for note in song {
+        pwm.set_duty_cycle_percent(50)?;
+        pwm.set_config(note.tone);
+        Timer::after(Duration::from_millis(note.time)).await;
+        pwm.set_duty_cycle_percent(0)?;
+        Timer::after(Duration::from_millis(50)).await;
+    }
+
+    Ok(())
+}
+
+pub async fn connection_lost(pwm: &mut Pwm<'_>) -> Result<(), PwmError> {
+    let e = tone(1319);
+    let f = tone(1397);
+    let song: [&Note; 2] = [
+        &Note {
+            tone: &e,
+            time: 250,
+        },
+        &Note {
+            tone: &f,
+            time: 250,
+        },
+    ];
+    for note in song {
+        pwm.set_duty_cycle_percent(50)?;
+        pwm.set_config(note.tone);
+        Timer::after(Duration::from_millis(note.time)).await;
+        pwm.set_duty_cycle_percent(0)?;
+        Timer::after(Duration::from_millis(50)).await;
+    }
+
+    Ok(())
+}
