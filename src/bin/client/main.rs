@@ -7,14 +7,46 @@
 use cyw43::JoinOptions;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_futures::join::join;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{IpAddress, IpEndpoint, Ipv4Address, Ipv4Cidr};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
-use embassy_time::{Duration, Instant, Timer};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::Channel;
+use embassy_time::{Duration, Timer};
 use picopico_phone::music::{connection_established, connection_lost, jingle_bells};
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
+
+enum MusicCommand {
+    Ring,
+    Connected,
+    Disconnected,
+}
+
+static MUSIC_CHANNEL: Channel<CriticalSectionRawMutex, MusicCommand, 1> = Channel::new();
+
+#[embassy_executor::task]
+async fn music_task(mut pwm: Pwm<'static>) {
+    loop {
+        match MUSIC_CHANNEL.receive().await {
+            MusicCommand::Ring => {
+                if jingle_bells(&mut pwm).await.is_err() {
+                    warn!("failed to play ring");
+                }
+            }
+            MusicCommand::Connected => {
+                if connection_established(&mut pwm).await.is_err() {
+                    warn!("failed to play connected");
+                }
+            }
+            MusicCommand::Disconnected => {
+                if connection_lost(&mut pwm).await.is_err() {
+                    warn!("failed to play disconnected");
+                }
+            }
+        }
+    }
+}
 
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
     embassy_rp::binary_info::rp_program_name!(c"WiFi Client"),
@@ -45,16 +77,18 @@ async fn main(spawner: Spawner) {
         Ipv4Cidr::new(Ipv4Address::new(169, 254, 1, 2), 16),
     )
     .await;
-    control.gpio_set(CYW43_GPIO_LED, false).await;
 
     let mut pwm = Pwm::new_output_a(p.PWM_SLICE2, p.PIN_4, picopico_phone::music::tone(1024));
     if pwm.set_duty_cycle(0).is_err() {
         warn!("failed to set initial duty cycle")
     }
+    if spawner.spawn(music_task(pwm)).is_err() {
+        defmt::panic!("failed to spawn music task");
+    }
 
-    let mut last_ring: Instant = Instant::from_ticks(0);
     loop {
         debug!("connecting");
+        control.gpio_set(CYW43_GPIO_LED, false).await;
         while let Err(err) = control
             .join(WIFI_NETWORK, JoinOptions::new(WIFI_PASSWORD.as_bytes()))
             .await
@@ -63,10 +97,6 @@ async fn main(spawner: Spawner) {
             Timer::after(Duration::from_millis(1000)).await;
         }
         stack.wait_link_up().await;
-        if connection_established(&mut pwm).await.is_err() {
-            warn!("failed to play song due to error");
-        }
-
         let mut rx_buffer = [0; 1024];
         let mut tx_buffer = [0; 1024];
         let mut msg_buffer = [0; 1024];
@@ -84,6 +114,7 @@ async fn main(spawner: Spawner) {
                 Timer::after(Duration::from_millis(1000)).await;
                 break 'socket;
             }
+            MUSIC_CHANNEL.send(MusicCommand::Connected).await;
             control.gpio_set(CYW43_GPIO_LED, true).await;
 
             loop {
@@ -93,13 +124,7 @@ async fn main(spawner: Spawner) {
                             break 'socket;
                         }
 
-                        let now = Instant::now();
-                        if now.duration_since(last_ring).as_millis() > 5000 {
-                            last_ring = now;
-                            if jingle_bells(&mut pwm).await.is_err() {
-                                warn!("failed to play song due to error");
-                            }
-                        }
+                        let _ = MUSIC_CHANNEL.try_send(MusicCommand::Ring);
                     }
                     Err(e) => {
                         warn!("failed to read from socket due to error {:?}", e);
@@ -111,6 +136,7 @@ async fn main(spawner: Spawner) {
 
         debug!("connection lost");
         control.gpio_set(CYW43_GPIO_LED, false).await;
-        let _ = join(connection_lost(&mut pwm), control.leave()).await;
+        MUSIC_CHANNEL.send(MusicCommand::Disconnected).await;
+        control.leave().await;
     }
 }

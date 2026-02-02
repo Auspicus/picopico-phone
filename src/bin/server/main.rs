@@ -8,7 +8,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_rp::gpio::{Input, Pull};
-use embassy_time::Duration;
+use embassy_time::{Duration, Instant};
 use embedded_io_async::Write;
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
@@ -44,9 +44,9 @@ async fn main(spawner: Spawner) {
     let mut trigger = Input::new(p.PIN_0, Pull::Up);
     control.start_ap_wpa2("cyw43", "password", 5).await;
 
-    loop {
-        let mut rx_buffer = [0; 4096];
-        let mut tx_buffer = [0; 4096];
+    'connection: loop {
+        let mut rx_buffer = [0; 1024];
+        let mut tx_buffer = [0; 1024];
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
         socket.set_timeout(Some(Duration::from_secs(20)));
         socket.set_keep_alive(Some(Duration::from_secs(10)));
@@ -59,14 +59,19 @@ async fn main(spawner: Spawner) {
         }
         control.gpio_set(CYW43_GPIO_LED, true).await;
 
+        let mut last_trigger = Instant::from_ticks(0);
         loop {
-            trigger.wait_for_rising_edge().await;
-            match socket.write_all(b"rising_edge\n").await {
-                Ok(()) => {}
-                Err(e) => {
-                    warn!("write error: {:?}", e);
-                    break;
-                }
+            trigger.wait_for_any_edge().await;
+
+            let now = Instant::now();
+            if now.duration_since(last_trigger).as_millis() < 5000 {
+                continue;
+            }
+            last_trigger = now;
+
+            if socket.write_all("e".as_bytes()).await.is_err() {
+                warn!("write error");
+                continue 'connection;
             }
         }
     }
