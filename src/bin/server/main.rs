@@ -7,8 +7,8 @@
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
-use embassy_rp::gpio::{Input, Pull};
-use embassy_time::{Duration, Instant};
+use embassy_rp::gpio::{Input, Level, Pull};
+use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 use picopico_phone::net::{self, Cyw43Peripherals};
 use {defmt_rtt as _, panic_probe as _};
@@ -41,7 +41,7 @@ async fn main(spawner: Spawner) {
     )
     .await;
 
-    let mut trigger = Input::new(p.PIN_0, Pull::Up);
+    let mut trigger = Input::new(p.PIN_5, Pull::Up);
     control.start_ap_wpa2("cyw43", "password", 5).await;
 
     'connection: loop {
@@ -59,15 +59,28 @@ async fn main(spawner: Spawner) {
         }
         control.gpio_set(CYW43_GPIO_LED, true).await;
 
-        let mut last_trigger = Instant::from_ticks(0);
         loop {
-            trigger.wait_for_any_edge().await;
+            trigger.wait_for_high().await;
 
-            let now = Instant::now();
-            if now.duration_since(last_trigger).as_millis() < 5000 {
+            // Confirm this change is stable after 500ms
+            // to ignore momentary voltage spike triggers
+            // due to noisy power supplies.
+            Timer::after(Duration::from_millis(500)).await;
+            if trigger.get_level() != Level::High {
+                debug!("high for less than 500ms!");
                 continue;
             }
-            last_trigger = now;
+
+            trigger.wait_for_low().await;
+
+            // Confirm this change is stable after 500ms
+            // to ignore momentary voltage spike triggers
+            // due to noisy power supplies.
+            Timer::after(Duration::from_millis(500)).await;
+            if trigger.get_level() != Level::Low {
+                debug!("low for less than 500ms!");
+                continue;
+            }
 
             if socket.write_all("e".as_bytes()).await.is_err() {
                 warn!("write error");
