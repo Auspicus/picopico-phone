@@ -5,3 +5,4 @@
 
 pub mod music;
 pub mod net;
+pub mod i2s;
