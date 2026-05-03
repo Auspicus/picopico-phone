@@ -4,7 +4,7 @@ MEMORY {
      *
      * 2 MiB is a safe default here, although a Pico 2 has 4 MiB.
      */
-    FLASH : ORIGIN = 0x10000000, LENGTH = 2048K
+    FLASH : ORIGIN = 0x10000000, LENGTH = 4096K
     /*
      * RAM consists of 8 banks, SRAM0-SRAM7, with a striped mapping.
      * This is usually good for performance, as it distributes load on
@@ -250,4 +250,3 @@ then modify your build script to compile the C code _without_ the
 details.");
 
 /* Do not exceed this mark in the error messages above                                    | */
-
