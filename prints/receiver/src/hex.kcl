@@ -1,0 +1,151 @@
+@settings(kclVersion = 2.0)
+
+/// Creates a hex nut.
+///
+/// @param c - Center point of the hex nut [x, y]
+/// @param r - Radius from center to corner
+/// @param e - Extrusion length (height)
+export fn hex(r, e) {
+  c = [0, 0]
+  sketch002 = sketch(on = XY) {
+    circle1 = circle(start = [var 5.69mm, var 4.12mm], center = [var 0, var 0], construction = true)
+    coincident([circle1.center, c])
+    distance([circle1.center, circle1.start]) == r
+    line1 = line(start = [var 8.1mm, var 5.86mm], end = [var 0mm, var 9.96mm])
+    coincident([line1.start, circle1.start])
+    vertical([line1.end, c])
+    line2 = line(start = [var 0mm, var 9.96mm], end = [var -8.34mm, var 5.52mm])
+    coincident([line2.start, line1.end])
+    coincident([line2.end, circle1])
+    line3 = line(start = [var -8.34mm, var 5.52mm], end = [var -9.73mm, var -2.3mm])
+    coincident([line3.start, line2.end])
+    coincident([line3.end, circle1])
+    line4 = line(start = [var -9.73mm, var -2.3mm], end = [var -4.73mm, var -8.81mm])
+    coincident([line4.start, line3.end])
+    coincident([line4.end, circle1])
+    line5 = line(start = [var -4.73mm, var -8.81mm], end = [var 2.56mm, var -9.67mm])
+    coincident([line5.start, line4.end])
+    coincident([line5.end, circle1])
+    line6 = line(start = [var 2.56mm, var -9.67mm], end = [var 8.76mm, var -4.83mm])
+    coincident([line6.start, line5.end])
+    coincident([line6.end, line1.start])
+    distance([line1.start, line1.end]) == r
+    distance([line2.start, line2.end]) == r
+    distance([line3.start, line3.end]) == r
+    distance([line4.start, line4.end]) == r
+    distance([line5.start, line5.end]) == r
+    distance([line6.start, line6.end]) == r
+  }
+  outer = extrude(sketch002, length = e, tagStart = $capStart001)
+  // hole = hole::hole(
+  // outer,
+  // face = capStart001,
+  // cutAt = c,
+  // holeBottom = hole::flat(),
+  // holeBody = hole::blind(depth = e, diameter = r),
+  // holeType = hole::simple(),
+  // )
+
+
+  return outer
+}
+
+// nut = hex(r = 3mm, e = 2.4mm)
+
+// c = [0, 0]
+// r = 3mm
+// e = 2.4mm
+// l = 10mm
+// s = 6mm
+
+/// Creates a hex wedge.
+///
+/// @param r - Radius from center to corner
+/// @param e - Extrusion length (height)
+export fn hexWedge(r, e, l) {
+// r = 3mm
+// e = 2.4mm
+// l = 10mm
+c = [0, 0]
+pillarPlane = {
+  origin = [0, 0, 0],
+  xAxis = [1.0, 0.0, 0.0],
+  yAxis = [0.0, 1.0, 0.0]
+}
+sketch002 = sketch(on = pillarPlane) {
+  // hex cross
+  line1 = line(start = [var -2.8mm, var 0mm], end = [var 3.2mm, var 0mm], construction = true)
+  horizontal([line1.start, ORIGIN])
+  horizontal([line1.end, ORIGIN])
+
+  // hex outer
+  line2 = line(start = [var -2.8mm, var 0mm], end = [var -1.3mm, var 2.6mm])
+  coincident([line2.start, line1.start])
+  line3 = line(start = [var -1.3mm, var 2.6mm], end = [var 1.7mm, var 2.6mm])
+  coincident([line2.end, line3.start])
+  line4 = line(start = [var 1.7mm, var 2.6mm], end = [var 3.2mm, var 0mm])
+  coincident([line3.end, line4.start])
+  coincident([line4.end, line1.end])
+
+  // hex inner
+  line5 = line(start = [var 3.2mm, var 0mm], end = [var 1.7mm, var -2.6mm], construction = true)
+  coincident([line5.start, line4.end])
+  line6 = line(start = [var 1.7mm, var -2.6mm], end = [var -1.3mm, var -2.6mm], construction = true)
+  coincident([line5.end, line6.start])
+  line7 = line(start = [var -1.3mm, var -2.6mm], end = [var -2.8mm, var 0mm], construction = true)
+  coincident([line6.end, line7.start])
+  coincident([line7.end, line2.start])
+
+  // box
+  line8 = line(start = [var -2.8mm, var 0mm], end = [var -2.8mm, var -5mm])
+  coincident([line8.start, line2.start])
+  line9 = line(start = [var -2.8mm, var -5mm], end = [var 3.2mm, var -5mm])
+  coincident([line8.end, line9.start])
+  line10 = line(start = [var 3.2mm, var -5mm], end = [var 3.2mm, var 0mm])
+  coincident([line10.end, line1.end])
+  coincident([line9.end, line10.start])
+
+  distance([line1.start, line1.end]) == r * 2
+  distance([line1.start, ORIGIN]) == r
+  distance([line1.end, ORIGIN]) == r
+  distance([line2.start, line2.end]) == r
+  distance([line3.start, line3.end]) == r
+  distance([line4.start, line4.end]) == r
+  distance([line6.start, line6.end]) == r
+  distance([line5.start, line5.end]) == r
+  distance([line7.start, line7.end]) == r
+  distance([line8.start, line8.end]) == l
+  distance([line9.start, line9.end]) == r * 2
+  distance([line10.start, line10.end]) == l
+  parallel([line3, line6])
+  parallel([line4, line7])
+  parallel([line2, line5])
+  parallel([line3, line1])
+  parallel([line6, line1])
+  parallel([line8, line10])
+  parallel([line1, line9])
+  vertical(line8)
+  vertical(line10)
+  perpendicular([line8, line9])
+  perpendicular([line9, line10])
+  perpendicular([line1, line10])
+}
+
+reg = region(point = c, sketch = sketch002)
+outer = extrude(reg, length = e, tagEnd = $capEnd001)
+fillet001 = fillet(
+  outer,
+  tags = [
+    getCommonEdge(faces = [reg.tags.line8, capEnd001]),
+    getCommonEdge(faces = [reg.tags.line2, capEnd001]),
+    getCommonEdge(faces = [reg.tags.line3, capEnd001]),
+    getCommonEdge(faces = [reg.tags.line4, capEnd001]),
+    getCommonEdge(faces = [reg.tags.line10, capEnd001]),
+    getCommonEdge(faces = [reg.tags.line9, capEnd001])
+  ],
+  radius = 0.5,
+)
+return fillet001
+}
+
+// w = hexWedge(r = 3mm, e = 2.4mm, l = 30mm)

@@ -99,7 +99,9 @@ const CHUNK_SIZE: usize = BUFFER_SIZE * FRAME_BYTES;
 
 #[embassy_executor::task]
 pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
-    let samples = include_bytes!("../audio/output.raw");
+    let ring = include_bytes!("../audio/ding-dong.raw");
+    let disconnected = include_bytes!("../audio/disconnected.raw");
+    let connected = include_bytes!("../audio/connected.raw");
 
     // create two audio buffers (back and front) which will take turns being
     // filled with new audio data and being sent to the pio fifo using dma
@@ -110,8 +112,14 @@ pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
     loop {
         let cmd = MUSIC_CHANNEL.receive().await;
         match cmd {
-            MusicCommand::Ring | MusicCommand::Connected | MusicCommand::Disconnected => {
-                play(&mut i2s, front_buffer, back_buffer, samples).await;
+            MusicCommand::Ring => {
+                play(&mut i2s, front_buffer, back_buffer, ring).await;
+            },
+            MusicCommand::Connected => {
+                play(&mut i2s, front_buffer, back_buffer, connected).await;
+            },
+            MusicCommand::Disconnected => {
+                play(&mut i2s, front_buffer, back_buffer, disconnected).await;
             },
         }
     }

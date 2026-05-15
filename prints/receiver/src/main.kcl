@@ -1,0 +1,44 @@
+@settings(defaultLengthUnit = mm)
+
+import enclosure from "enclosure.kcl"
+import lid from "enclosure_lid.kcl"
+
+// enclosure dimensions
+l = 120mm
+w = 120mm
+h = 80mm
+t = 3mm
+a = 30mm
+
+// nut & bolt dimensions
+nutDepth = 3mm
+boltDepth = 25mm - t
+boltDiameter = 3.5mm // M3 + 0.5mm clearance
+
+// speaker dimensions
+speakerInner = 76.2mm
+speakerOuter = 83mm
+
+bodyObj = enclosure(
+  length = l,
+  width = w,
+  height = h,
+  wallThickness = t,
+  accessHoleHeight = a,
+  nutRadius = boltDiameter,
+  boltDepth = boltDepth,
+  holeRadius = boltDiameter / 2,
+  nutDepth = nutDepth,
+)
+
+lidObj = lid(
+  length = l,
+  width = w,
+  wallThickness = t,
+  holeRadius = boltDiameter / 2,
+  speakerHoleDiameter = boltDiameter,
+  centerHoleDia = speakerInner,
+  speakerHoleDistanceDiagonal = speakerOuter,
+)
+txLid = lidObj
+  |> translate(x = 125mm, y = 0, z = 0)
