@@ -148,4 +148,4 @@ fillet001 = fillet(
 return fillet001
 }
 
-// w = hexWedge(r = 3mm, e = 2.4mm, l = 30mm)
+w = hexWedge(r = 3mm, e = 2.4mm, l = 5mm)

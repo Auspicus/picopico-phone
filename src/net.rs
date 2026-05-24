@@ -68,7 +68,7 @@ pub async fn init_cyw43(
 
     control.init(clm).await;
     control
-        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .set_power_management(cyw43::PowerManagementMode::None)
         .await;
 
     let config = embassy_net::Config::ipv4_static(embassy_net::StaticConfigV4 {

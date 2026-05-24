@@ -66,6 +66,7 @@ async fn main(spawner: Spawner) {
             Timer::after(Duration::from_millis(1000)).await;
         }
         stack.wait_link_up().await;
+
         let mut rx_buffer = [0; 1024];
         let mut tx_buffer = [0; 1024];
         let mut msg_buffer = [0; 1024];
@@ -107,5 +108,8 @@ async fn main(spawner: Spawner) {
         control.gpio_set(CYW43_GPIO_LED, false).await;
         i2s::MUSIC_CHANNEL.send(i2s::MusicCommand::Disconnected).await;
         control.leave().await;
+
+        // backoff and retry.
+        Timer::after(Duration::from_millis(5_000)).await;
     }
 }

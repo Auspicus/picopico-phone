@@ -25,6 +25,7 @@ pub struct I2sPeripherals {
 const SAMPLE_RATE_HZ: u32 = 48_000;
 const BIT_DEPTH: u32 = 16;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum MusicCommand {
     Ring,
     Connected,
@@ -93,13 +94,13 @@ async fn play(i2s: &mut PioI2sOut<'static, PIO1, 0>, mut front_buffer: &mut [u32
     }
 }
 
-const BUFFER_SIZE: usize = 960;
+const BUFFER_SIZE: usize = 24_000;
 const FRAME_BYTES: usize = 4;
 const CHUNK_SIZE: usize = BUFFER_SIZE * FRAME_BYTES;
 
 #[embassy_executor::task]
 pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
-    let ring = include_bytes!("../audio/ding-dong.raw");
+    let ring = include_bytes!("../audio/ring.raw");
     let disconnected = include_bytes!("../audio/disconnected.raw");
     let connected = include_bytes!("../audio/connected.raw");
 
@@ -108,6 +109,7 @@ pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
     static DMA_BUFFER: StaticCell<[u32; BUFFER_SIZE * 2]> = StaticCell::new();
     let dma_buffer = DMA_BUFFER.init_with(|| [0u32; BUFFER_SIZE * 2]);
     let (back_buffer, front_buffer) = dma_buffer.split_at_mut(BUFFER_SIZE);
+    let mut last: Option<MusicCommand> = None;
 
     loop {
         let cmd = MUSIC_CHANNEL.receive().await;
@@ -116,11 +118,16 @@ pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
                 play(&mut i2s, front_buffer, back_buffer, ring).await;
             },
             MusicCommand::Connected => {
-                play(&mut i2s, front_buffer, back_buffer, connected).await;
+                if last.is_none_or(|c| c != MusicCommand::Connected) {
+                    play(&mut i2s, front_buffer, back_buffer, connected).await;
+                }
             },
             MusicCommand::Disconnected => {
-                play(&mut i2s, front_buffer, back_buffer, disconnected).await;
+                if last.is_none_or(|c| c != MusicCommand::Disconnected) {
+                    play(&mut i2s, front_buffer, back_buffer, disconnected).await;
+                }
             },
         }
+        last = Some(cmd);
     }
 }
