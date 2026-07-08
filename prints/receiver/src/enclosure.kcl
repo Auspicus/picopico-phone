@@ -1,0 +1,156 @@
+// Enclosure
+// An enclosure body and sealing lid for storing items
+// Categories: Computer Hardware, Maker
+
+@settings(defaultLengthUnit = mm)
+
+import hexWedge from "hex.kcl"
+
+export fn enclosure(length, width, height, wallThickness, holeRadius, accessHoleHeight, nutRadius, nutDepth, boltDepth) {
+  baseProfile = sketch(on = XY) {
+    line1 = line(start = [var 0mm, var 0mm], end = [var 125mm, var 0mm])
+    line2 = line(start = [var 125mm, var 0mm], end = [var 125mm, var 175mm])
+    coincident([line1.end, line2.start])
+    line3 = line(start = [var 125mm, var 175mm], end = [var 0mm, var 175mm])
+    coincident([line2.end, line3.start])
+    line4 = line(start = [var 0mm, var 175mm], end = [var 0mm, var 0mm])
+    coincident([line3.end, line4.start])
+    coincident([line4.end, line1.start])
+
+    coincident([line1.start, ORIGIN])
+    horizontal(line1)
+    vertical(line2)
+    horizontal(line3)
+    vertical(line4)
+    distance([line1.start, line1.end]) == width
+    distance([line2.start, line2.end]) == length
+  }
+
+  baseRegion = region(segments = [baseProfile.line1, baseProfile.line2])
+
+  baseBody = extrude(baseRegion, length = height, tagStart = $capStart001)
+    |> fillet(
+         radius = wallThickness * 4,
+         tags = [
+           getCommonEdge(faces = [
+             baseRegion.tags.line1,
+             baseRegion.tags.line2
+           ]),
+           getCommonEdge(faces = [
+             baseRegion.tags.line1,
+             baseRegion.tags.line3
+           ]),
+           getCommonEdge(faces = [
+             baseRegion.tags.line3,
+             baseRegion.tags.line4
+           ]),
+           getCommonEdge(faces = [
+             baseRegion.tags.line4,
+             baseRegion.tags.line2
+           ])
+         ],
+       )
+    |> shell(faces = [END], thickness = wallThickness)
+  hide(baseProfile)
+
+  innerOffset = wallThickness * 3 + holeRadius
+  pillarOuterRadius = holeRadius + wallThickness
+  pillarHeight = height - wallThickness
+  xSpread = width - (2 * innerOffset)
+  ySpread = length - (2 * innerOffset)
+
+  pillarPlane = {
+    origin = [
+      innerOffset,
+      innerOffset,
+      wallThickness
+    ],
+    xAxis = [1.0, 0.0, 0.0],
+    yAxis = [0.0, 1.0, 0.0]
+  }
+
+  pillarSketch = sketch(on = pillarPlane) {
+    outerGuide = line(start = [var 0mm, var 0mm], end = [var 7mm, var 0mm], construction = true)
+    coincident([outerGuide.start, ORIGIN])
+    horizontal(outerGuide)
+    outerCircle = circle(start = [var 7mm, var 0mm], center = [var 0mm, var 0mm])
+    coincident([outerCircle.center, outerGuide.start])
+    coincident([outerCircle.start, outerGuide.end])
+    distance([outerGuide.start, outerGuide.end]) == pillarOuterRadius
+
+    innerGuide = line(start = [var 0mm, var 0mm], end = [var 4mm, var 0mm], construction = true)
+    coincident([innerGuide.start, ORIGIN])
+    horizontal(innerGuide)
+    innerCircle = circle(start = [var 4mm, var 0mm], center = [var 0mm, var 0mm])
+    coincident([innerCircle.center, innerGuide.start])
+    coincident([innerCircle.start, innerGuide.end])
+    distance([innerGuide.start, innerGuide.end]) == holeRadius
+  }
+
+  pillarRegion = region(point = [0mm, holeRadius + wallThickness / 2], sketch = pillarSketch)
+  pillarFrontLeft = extrude(pillarRegion, length = pillarHeight)
+  hide(pillarSketch)
+
+  pillarFrontRight = clone(pillarFrontLeft)
+    |> translate(x = xSpread, global = true)
+  pillarBackLeft = clone(pillarFrontLeft)
+    |> translate(y = ySpread, global = true)
+  pillarBackRight = clone(pillarFrontRight)
+    |> translate(y = ySpread, global = true)
+
+  nutZ = height - boltDepth + nutDepth
+  nutFrontLeft = hexWedge(r = nutRadius, e = nutDepth, l = 10mm)
+    |> translate(x = innerOffset, y = innerOffset, z = nutZ)
+    |> rotate(yaw = 135deg)
+  nutFrontRight = hexWedge(r = nutRadius, e = nutDepth, l = 10mm)
+    |> translate(x = innerOffset + xSpread, y = innerOffset, z = nutZ)
+    |> rotate(yaw = 225deg)
+  nutBackLeft = hexWedge(r = nutRadius, e = nutDepth, l = 10mm)
+    |> translate(x = innerOffset, y = innerOffset + ySpread, z = nutZ)
+    |> rotate(yaw = 45deg)
+  nutBackRight = hexWedge(r = nutRadius, e = nutDepth, l = 10mm)
+    |> translate(x = innerOffset + xSpread, y = innerOffset + ySpread, z = nutZ)
+    |> rotate(yaw = -45deg)
+
+  pillarFrontLeftSub = subtract(pillarFrontLeft, tools = nutFrontLeft)
+  pillarFrontRightSub = subtract(pillarFrontRight, tools = nutFrontRight)
+  pillarBackLeftSub = subtract(pillarBackLeft, tools = nutBackLeft)
+  pillarBackRightSub = subtract(pillarBackRight, tools = nutBackRight)
+
+  return union([
+    baseBody,
+    pillarFrontLeftSub,
+    pillarFrontRightSub,
+    pillarBackLeftSub,
+    pillarBackRightSub,
+  ])
+}
+
+// // enclosure dimensions
+// l = 120mm
+// w = 120mm
+// h = 80mm
+// t = 3mm
+// a = 30mm
+
+// // nut & bolt dimensions
+// nutDepth = 3mm
+// boltDepth = 25mm - t
+// boltDiameter = 3.5mm // M3 + 0.5mm clearance
+
+// // speaker dimensions
+// speakerInner = 76.2mm
+// speakerOuter = 83mm
+
+// bodyObj = enclosure(
+//   length = l,
+//   width = w,
+//   height = h,
+//   wallThickness = t,
+//   accessHoleHeight = a,
+//   nutRadius = boltDiameter,
+//   boltDepth = boltDepth,
+//   holeRadius = boltDiameter / 2,
+//   nutDepth = nutDepth,
+// )
+

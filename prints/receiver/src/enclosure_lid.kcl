@@ -1,0 +1,457 @@
+// Enclosure Lid
+// A sealing lid for an enclosure storing items
+// Categories: Computer Hardware, Maker
+
+@settings(defaultLengthUnit = mm)
+
+export fn lid(length, width, wallThickness, holeRadius, centerHoleDia, speakerHoleDiameter, speakerHoleDistanceDiagonal) {
+  innerOffset = wallThickness * 3 + holeRadius
+  lidOffsetX = 0
+  holeSpanX = width - (2 * innerOffset)
+  holeSpanY = length - (2 * innerOffset)
+  speakerHoleRadius = speakerHoleDiameter / 2
+  speakerHoleSpan = speakerHoleDistanceDiagonal / sqrt(2)  // 83mm diagonal center-to-center
+  speakerHoleOffset = (width - speakerHoleSpan) / 2
+
+  lidLipWidth = width - (2 * wallThickness)
+  lidLipLength = length - (2 * wallThickness)
+  lidLipHoleOffset = innerOffset - wallThickness
+  lidLipClearanceRadius = holeRadius + wallThickness
+  speakerLipHoleOffset = speakerHoleOffset - wallThickness
+
+  lidPlane = {
+    origin = [lidOffsetX, 0.0, 0.0],
+    xAxis = [1.0, 0.0, 0.0],
+    yAxis = [0.0, 1.0, 0.0]
+  }
+
+  lidSketch = sketch(on = lidPlane) {
+    line1 = line(start = [var 0mm, var 0mm], end = [var 120mm, var 0mm])
+    line2 = line(start = [var 120mm, var 0mm], end = [var 120mm, var 120mm])
+    coincident([line1.end, line2.start])
+    line3 = line(start = [var 120mm, var 120mm], end = [var 0mm, var 120mm])
+    coincident([line2.end, line3.start])
+    line4 = line(start = [var 0mm, var 120mm], end = [var 0mm, var 0mm])
+    coincident([line3.end, line4.start])
+    coincident([line4.end, line1.start])
+
+    coincident([line1.start, ORIGIN])
+    horizontal(line1)
+    vertical(line2)
+    horizontal(line3)
+    vertical(line4)
+    distance([line1.start, line1.end]) == width
+    distance([line2.start, line2.end]) == length
+
+    holeRectBottom = line(start = [var 10.9mm, var 10.9mm], end = [var 109.1mm, var 10.9mm], construction = true)
+    holeRectRight = line(start = [var 109.1mm, var 10.9mm], end = [var 109.1mm, var 109.1mm], construction = true)
+    coincident([
+      holeRectBottom.end,
+      holeRectRight.start
+    ])
+    holeRectTop = line(start = [var 109.1mm, var 109.1mm], end = [var 10.9mm, var 109.1mm], construction = true)
+    coincident([holeRectRight.end, holeRectTop.start])
+    holeRectLeft = line(start = [var 10.9mm, var 109.1mm], end = [var 10.9mm, var 10.9mm], construction = true)
+    coincident([holeRectTop.end, holeRectLeft.start])
+    coincident([holeRectLeft.end, holeRectBottom.start])
+
+    horizontal(holeRectBottom)
+    vertical(holeRectRight)
+    horizontal(holeRectTop)
+    vertical(holeRectLeft)
+    horizontalDistance([line1.start, holeRectBottom.start]) == innerOffset
+    verticalDistance([line1.start, holeRectBottom.start]) == innerOffset
+    distance([
+    holeRectBottom.start,
+    holeRectBottom.end
+  ]) == holeSpanX
+    distance([holeRectRight.start, holeRectRight.end]) == holeSpanY
+
+    holeGuideFrontLeft = line(start = [var 10.9mm, var 10.9mm], end = [var 12.8mm, var 10.9mm], construction = true)
+    coincident([
+      holeGuideFrontLeft.start,
+      holeRectBottom.start
+    ])
+    horizontal(holeGuideFrontLeft)
+    distance([
+    holeGuideFrontLeft.start,
+    holeGuideFrontLeft.end
+  ]) == holeRadius
+    holeFrontLeft = circle(start = [var 12.8mm, var 10.9mm], center = [var 10.9mm, var 10.9mm])
+    coincident([
+      holeFrontLeft.center,
+      holeGuideFrontLeft.start
+    ])
+    coincident([
+      holeFrontLeft.start,
+      holeGuideFrontLeft.end
+    ])
+
+    holeGuideFrontRight = line(start = [var 109.1mm, var 10.9mm], end = [var 111mm, var 10.9mm], construction = true)
+    coincident([
+      holeGuideFrontRight.start,
+      holeRectBottom.end
+    ])
+    horizontal(holeGuideFrontRight)
+    distance([
+    holeGuideFrontRight.start,
+    holeGuideFrontRight.end
+  ]) == holeRadius
+    holeFrontRight = circle(start = [var 111mm, var 10.9mm], center = [var 109.1mm, var 10.9mm])
+    coincident([
+      holeFrontRight.center,
+      holeGuideFrontRight.start
+    ])
+    coincident([
+      holeFrontRight.start,
+      holeGuideFrontRight.end
+    ])
+
+    holeGuideBackRight = line(start = [var 109.1mm, var 109.1mm], end = [var 111mm, var 109.1mm], construction = true)
+    coincident([
+      holeGuideBackRight.start,
+      holeRectRight.end
+    ])
+    horizontal(holeGuideBackRight)
+    distance([
+    holeGuideBackRight.start,
+    holeGuideBackRight.end
+  ]) == holeRadius
+    holeBackRight = circle(start = [var 111mm, var 109.1mm], center = [var 109.1mm, var 109.1mm])
+    coincident([
+      holeBackRight.center,
+      holeGuideBackRight.start
+    ])
+    coincident([
+      holeBackRight.start,
+      holeGuideBackRight.end
+    ])
+
+    holeGuideBackLeft = line(start = [var 10.9mm, var 109.1mm], end = [var 12.8mm, var 109.1mm], construction = true)
+    coincident([
+      holeGuideBackLeft.start,
+      holeRectTop.end
+    ])
+    horizontal(holeGuideBackLeft)
+    distance([
+    holeGuideBackLeft.start,
+    holeGuideBackLeft.end
+  ]) == holeRadius
+    holeBackLeft = circle(start = [var 12.8mm, var 109.1mm], center = [var 10.9mm, var 109.1mm])
+    coincident([
+      holeBackLeft.center,
+      holeGuideBackLeft.start
+    ])
+    coincident([
+      holeBackLeft.start,
+      holeGuideBackLeft.end
+    ])
+
+    speakerHoleRectBottom = line(start = [var 18.5mm, var 18.5mm], end = [var 101.5mm, var 18.5mm], construction = true)
+    speakerHoleRectRight = line(start = [var 101.5mm, var 18.5mm], end = [var 101.5mm, var 101.5mm], construction = true)
+    coincident([speakerHoleRectBottom.end, speakerHoleRectRight.start])
+    speakerHoleRectTop = line(start = [var 101.5mm, var 101.5mm], end = [var 18.5mm, var 101.5mm], construction = true)
+    coincident([speakerHoleRectRight.end, speakerHoleRectTop.start])
+    speakerHoleRectLeft = line(start = [var 18.5mm, var 101.5mm], end = [var 18.5mm, var 18.5mm], construction = true)
+    coincident([speakerHoleRectTop.end, speakerHoleRectLeft.start])
+    coincident([speakerHoleRectLeft.end, speakerHoleRectBottom.start])
+
+    horizontal(speakerHoleRectBottom)
+    vertical(speakerHoleRectRight)
+    horizontal(speakerHoleRectTop)
+    vertical(speakerHoleRectLeft)
+    horizontalDistance([line1.start, speakerHoleRectBottom.start]) == speakerHoleOffset
+    verticalDistance([line1.start, speakerHoleRectBottom.start]) == speakerHoleOffset
+    distance([speakerHoleRectBottom.start, speakerHoleRectBottom.end]) == speakerHoleSpan
+    distance([speakerHoleRectRight.start, speakerHoleRectRight.end]) == speakerHoleSpan
+
+    speakerGuideFrontLeft = line(start = [var 18.5mm, var 18.5mm], end = [var 20.05mm, var 18.5mm], construction = true)
+    coincident([speakerGuideFrontLeft.start, speakerHoleRectBottom.start])
+    horizontal(speakerGuideFrontLeft)
+    distance([speakerGuideFrontLeft.start, speakerGuideFrontLeft.end]) == speakerHoleRadius
+    speakerFrontLeft = circle(start = [var 20.05mm, var 18.5mm], center = [var 18.5mm, var 18.5mm])
+    coincident([speakerFrontLeft.center, speakerGuideFrontLeft.start])
+    coincident([speakerFrontLeft.start, speakerGuideFrontLeft.end])
+
+    speakerGuideFrontRight = line(start = [var 101.5mm, var 18.5mm], end = [var 103.05mm, var 18.5mm], construction = true)
+    coincident([speakerGuideFrontRight.start, speakerHoleRectBottom.end])
+    horizontal(speakerGuideFrontRight)
+    distance([speakerGuideFrontRight.start, speakerGuideFrontRight.end]) == speakerHoleRadius
+    speakerFrontRight = circle(start = [var 103.05mm, var 18.5mm], center = [var 101.5mm, var 18.5mm])
+    coincident([speakerFrontRight.center, speakerGuideFrontRight.start])
+    coincident([speakerFrontRight.start, speakerGuideFrontRight.end])
+
+    speakerGuideBackRight = line(start = [var 101.5mm, var 101.5mm], end = [var 103.05mm, var 101.5mm], construction = true)
+    coincident([speakerGuideBackRight.start, speakerHoleRectRight.end])
+    horizontal(speakerGuideBackRight)
+    distance([speakerGuideBackRight.start, speakerGuideBackRight.end]) == speakerHoleRadius
+    speakerBackRight = circle(start = [var 103.05mm, var 101.5mm], center = [var 101.5mm, var 101.5mm])
+    coincident([speakerBackRight.center, speakerGuideBackRight.start])
+    coincident([speakerBackRight.start, speakerGuideBackRight.end])
+
+    speakerGuideBackLeft = line(start = [var 18.5mm, var 101.5mm], end = [var 20.05mm, var 101.5mm], construction = true)
+    coincident([speakerGuideBackLeft.start, speakerHoleRectTop.end])
+    horizontal(speakerGuideBackLeft)
+    distance([speakerGuideBackLeft.start, speakerGuideBackLeft.end]) == speakerHoleRadius
+    speakerBackLeft = circle(start = [var 20.05mm, var 101.5mm], center = [var 18.5mm, var 101.5mm])
+    coincident([speakerBackLeft.center, speakerGuideBackLeft.start])
+    coincident([speakerBackLeft.start, speakerGuideBackLeft.end])
+
+    center = point(at = [var 57.15mm, var 64.36mm])
+    distance([center, line1.start]) == sqrt(pow(width, exp =  2) + pow(width, exp = 2)) / 2
+    distance([center, line2.start]) == sqrt(pow(width, exp =  2) + pow(width, exp = 2)) / 2
+    distance([center, line3.start]) == sqrt(pow(width, exp =  2) + pow(width, exp = 2)) / 2
+    distance([center, line4.start]) == sqrt(pow(width, exp =  2) + pow(width, exp = 2)) / 2
+    centerHole = circle(start = [var 0, var 0], center = [var 0, var 0])
+    distance([centerHole.center, center]) == 0
+    distance([centerHole.start, center]) == centerHoleDia / 2
+  }
+
+  lidRegion = region(point = [25mm, 25mm], sketch = lidSketch)
+  lidPlate = extrude(lidRegion, length = wallThickness)
+    |> fillet(
+         radius = wallThickness * 4,
+         tags = [
+           getCommonEdge(faces = [
+             lidRegion.tags.line1,
+             lidRegion.tags.line2
+           ]),
+           getCommonEdge(faces = [
+             lidRegion.tags.line1,
+             lidRegion.tags.line3
+           ]),
+           getCommonEdge(faces = [
+             lidRegion.tags.line3,
+             lidRegion.tags.line4
+           ]),
+           getCommonEdge(faces = [
+             lidRegion.tags.line4,
+             lidRegion.tags.line2
+           ])
+         ],
+       )
+
+  lidLipSketch = sketch(on = startSketchOn(lidPlate, face = END)) {
+    line1 = line(start = [var 147mm, var 3mm], end = [var 261mm, var 3mm])
+    line2 = line(start = [var 261mm, var 3mm], end = [var 261mm, var 117mm])
+    coincident([line1.end, line2.start])
+    line3 = line(start = [var 261mm, var 117mm], end = [var 147mm, var 117mm])
+    coincident([line2.end, line3.start])
+    line4 = line(start = [var 147mm, var 117mm], end = [var 147mm, var 3mm])
+    coincident([line3.end, line4.start])
+    coincident([line4.end, line1.start])
+
+    coincident([
+      line1.start,
+      [
+        lidOffsetX + wallThickness,
+        wallThickness
+      ]
+    ])
+    horizontal(line1)
+    vertical(line2)
+    horizontal(line3)
+    vertical(line4)
+    distance([line1.start, line1.end]) == lidLipWidth
+    distance([line2.start, line2.end]) == lidLipLength
+
+    holeRectBottom = line(start = [var 154.9mm, var 10.9mm], end = [var 253.1mm, var 10.9mm], construction = true)
+    holeRectRight = line(start = [var 253.1mm, var 10.9mm], end = [var 253.1mm, var 109.1mm], construction = true)
+    coincident([
+      holeRectBottom.end,
+      holeRectRight.start
+    ])
+    holeRectTop = line(start = [var 253.1mm, var 109.1mm], end = [var 154.9mm, var 109.1mm], construction = true)
+    coincident([holeRectRight.end, holeRectTop.start])
+    holeRectLeft = line(start = [var 154.9mm, var 109.1mm], end = [var 154.9mm, var 10.9mm], construction = true)
+    coincident([holeRectTop.end, holeRectLeft.start])
+    coincident([holeRectLeft.end, holeRectBottom.start])
+
+    horizontal(holeRectBottom)
+    vertical(holeRectRight)
+    horizontal(holeRectTop)
+    vertical(holeRectLeft)
+    horizontalDistance([line1.start, holeRectBottom.start]) == lidLipHoleOffset
+    verticalDistance([line1.start, holeRectBottom.start]) == lidLipHoleOffset
+    distance([
+    holeRectBottom.start,
+    holeRectBottom.end
+  ]) == holeSpanX
+    distance([holeRectRight.start, holeRectRight.end]) == holeSpanY
+
+    holeGuideFrontLeft = line(start = [var 154.9mm, var 10.9mm], end = [var 159.8mm, var 10.9mm], construction = true)
+    coincident([
+      holeGuideFrontLeft.start,
+      holeRectBottom.start
+    ])
+    horizontal(holeGuideFrontLeft)
+    distance([
+    holeGuideFrontLeft.start,
+    holeGuideFrontLeft.end
+  ]) == lidLipClearanceRadius
+    holeFrontLeft = circle(start = [var 159.8mm, var 10.9mm], center = [var 154.9mm, var 10.9mm])
+    coincident([
+      holeFrontLeft.center,
+      holeGuideFrontLeft.start
+    ])
+    coincident([
+      holeFrontLeft.start,
+      holeGuideFrontLeft.end
+    ])
+
+    holeGuideFrontRight = line(start = [var 253.1mm, var 10.9mm], end = [var 258mm, var 10.9mm], construction = true)
+    coincident([
+      holeGuideFrontRight.start,
+      holeRectBottom.end
+    ])
+    horizontal(holeGuideFrontRight)
+    distance([
+    holeGuideFrontRight.start,
+    holeGuideFrontRight.end
+  ]) == lidLipClearanceRadius
+    holeFrontRight = circle(start = [var 258mm, var 10.9mm], center = [var 253.1mm, var 10.9mm])
+    coincident([
+      holeFrontRight.center,
+      holeGuideFrontRight.start
+    ])
+    coincident([
+      holeFrontRight.start,
+      holeGuideFrontRight.end
+    ])
+
+    holeGuideBackRight = line(start = [var 253.1mm, var 109.1mm], end = [var 258mm, var 109.1mm], construction = true)
+    coincident([
+      holeGuideBackRight.start,
+      holeRectRight.end
+    ])
+    horizontal(holeGuideBackRight)
+    distance([
+    holeGuideBackRight.start,
+    holeGuideBackRight.end
+  ]) == lidLipClearanceRadius
+    holeBackRight = circle(start = [var 258mm, var 109.1mm], center = [var 253.1mm, var 109.1mm])
+    coincident([
+      holeBackRight.center,
+      holeGuideBackRight.start
+    ])
+    coincident([
+      holeBackRight.start,
+      holeGuideBackRight.end
+    ])
+
+    holeGuideBackLeft = line(start = [var 154.9mm, var 109.1mm], end = [var 159.8mm, var 109.1mm], construction = true)
+    coincident([
+      holeGuideBackLeft.start,
+      holeRectTop.end
+    ])
+    horizontal(holeGuideBackLeft)
+    distance([
+    holeGuideBackLeft.start,
+    holeGuideBackLeft.end
+  ]) == lidLipClearanceRadius
+    holeBackLeft = circle(start = [var 159.8mm, var 109.1mm], center = [var 154.9mm, var 109.1mm])
+    coincident([
+      holeBackLeft.center,
+      holeGuideBackLeft.start
+    ])
+    coincident([
+      holeBackLeft.start,
+      holeGuideBackLeft.end
+    ])
+
+    speakerHoleRectBottom = line(start = [var 18.5mm, var 18.5mm], end = [var 101.5mm, var 18.5mm], construction = true)
+    speakerHoleRectRight = line(start = [var 101.5mm, var 18.5mm], end = [var 101.5mm, var 101.5mm], construction = true)
+    coincident([speakerHoleRectBottom.end, speakerHoleRectRight.start])
+    speakerHoleRectTop = line(start = [var 101.5mm, var 101.5mm], end = [var 18.5mm, var 101.5mm], construction = true)
+    coincident([speakerHoleRectRight.end, speakerHoleRectTop.start])
+    speakerHoleRectLeft = line(start = [var 18.5mm, var 101.5mm], end = [var 18.5mm, var 18.5mm], construction = true)
+    coincident([speakerHoleRectTop.end, speakerHoleRectLeft.start])
+    coincident([speakerHoleRectLeft.end, speakerHoleRectBottom.start])
+
+    horizontal(speakerHoleRectBottom)
+    vertical(speakerHoleRectRight)
+    horizontal(speakerHoleRectTop)
+    vertical(speakerHoleRectLeft)
+    horizontalDistance([line1.start, speakerHoleRectBottom.start]) == speakerLipHoleOffset
+    verticalDistance([line1.start, speakerHoleRectBottom.start]) == speakerLipHoleOffset
+    distance([speakerHoleRectBottom.start, speakerHoleRectBottom.end]) == speakerHoleSpan
+    distance([speakerHoleRectRight.start, speakerHoleRectRight.end]) == speakerHoleSpan
+
+    speakerGuideFrontLeft = line(start = [var 18.5mm, var 18.5mm], end = [var 20.05mm, var 18.5mm], construction = true)
+    coincident([speakerGuideFrontLeft.start, speakerHoleRectBottom.start])
+    horizontal(speakerGuideFrontLeft)
+    distance([speakerGuideFrontLeft.start, speakerGuideFrontLeft.end]) == speakerHoleRadius
+    speakerFrontLeft = circle(start = [var 20.05mm, var 18.5mm], center = [var 18.5mm, var 18.5mm])
+    coincident([speakerFrontLeft.center, speakerGuideFrontLeft.start])
+    coincident([speakerFrontLeft.start, speakerGuideFrontLeft.end])
+
+    speakerGuideFrontRight = line(start = [var 101.5mm, var 18.5mm], end = [var 103.05mm, var 18.5mm], construction = true)
+    coincident([speakerGuideFrontRight.start, speakerHoleRectBottom.end])
+    horizontal(speakerGuideFrontRight)
+    distance([speakerGuideFrontRight.start, speakerGuideFrontRight.end]) == speakerHoleRadius
+    speakerFrontRight = circle(start = [var 103.05mm, var 18.5mm], center = [var 101.5mm, var 18.5mm])
+    coincident([speakerFrontRight.center, speakerGuideFrontRight.start])
+    coincident([speakerFrontRight.start, speakerGuideFrontRight.end])
+
+    speakerGuideBackRight = line(start = [var 101.5mm, var 101.5mm], end = [var 103.05mm, var 101.5mm], construction = true)
+    coincident([speakerGuideBackRight.start, speakerHoleRectRight.end])
+    horizontal(speakerGuideBackRight)
+    distance([speakerGuideBackRight.start, speakerGuideBackRight.end]) == speakerHoleRadius
+    speakerBackRight = circle(start = [var 103.05mm, var 101.5mm], center = [var 101.5mm, var 101.5mm])
+    coincident([speakerBackRight.center, speakerGuideBackRight.start])
+    coincident([speakerBackRight.start, speakerGuideBackRight.end])
+
+    speakerGuideBackLeft = line(start = [var 18.5mm, var 101.5mm], end = [var 20.05mm, var 101.5mm], construction = true)
+    coincident([speakerGuideBackLeft.start, speakerHoleRectTop.end])
+    horizontal(speakerGuideBackLeft)
+    distance([speakerGuideBackLeft.start, speakerGuideBackLeft.end]) == speakerHoleRadius
+    speakerBackLeft = circle(start = [var 20.05mm, var 101.5mm], center = [var 18.5mm, var 101.5mm])
+    coincident([speakerBackLeft.center, speakerGuideBackLeft.start])
+    coincident([speakerBackLeft.start, speakerGuideBackLeft.end])
+
+    center = point(at = [var 57.15mm, var 64.36mm])
+    distance([center, line1.start]) == sqrt(pow(lidLipWidth, exp =  2) + pow(lidLipWidth, exp = 2)) / 2
+    distance([center, line2.start]) == sqrt(pow(lidLipWidth, exp =  2) + pow(lidLipWidth, exp = 2)) / 2
+    distance([center, line3.start]) == sqrt(pow(lidLipWidth, exp =  2) + pow(lidLipWidth, exp = 2)) / 2
+    distance([center, line4.start]) == sqrt(pow(lidLipWidth, exp =  2) + pow(lidLipWidth, exp = 2)) / 2
+    centerHole = circle(start = [var 0, var 0], center = [var 0, var 0])
+    distance([centerHole.center, center]) == 0
+    distance([centerHole.start, center]) == centerHoleDia / 2
+  }
+
+  lidLipRegion = region(point = [lidOffsetX + 25mm, 25mm], sketch = lidLipSketch)
+  lidLip = extrude(lidLipRegion, length = wallThickness, tagEnd = $capEnd001)
+    |> fillet(
+         radius = wallThickness * 3,
+         tags = [
+           getCommonEdge(faces = [
+             lidLipRegion.tags.line1,
+             lidLipRegion.tags.line2
+           ]),
+           getCommonEdge(faces = [
+             lidLipRegion.tags.line1,
+             lidLipRegion.tags.line3
+           ]),
+           getCommonEdge(faces = [
+             lidLipRegion.tags.line3,
+             lidLipRegion.tags.line4
+           ]),
+           getCommonEdge(faces = [
+             lidLipRegion.tags.line4,
+             lidLipRegion.tags.line2
+           ])
+         ],
+       )
+
+  return union([lidPlate, lidLip])
+}
+
+// lidObj = lid(
+//     length = 150mm,
+//     width = 150mm,
+//     wallThickness = 3mm,
+//     holeRadius = 3.5mm / 2,
+//     centerHoleDia = 76.2mm,
+//     speakerHoleDiameter = 3.5mm,
+//     speakerHoleDistanceDiagonal = 83mm
+// )

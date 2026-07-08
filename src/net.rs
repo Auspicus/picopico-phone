@@ -1,25 +1,22 @@
-use cyw43::Control;
+use cyw43::{aligned_bytes, Control};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use embassy_executor::Spawner;
 use embassy_net::{Ipv4Cidr, Stack, StackResources};
 use embassy_rp::{
-    bind_interrupts,
     clocks::RoscRng,
+    dma::{self},
     gpio::{Level, Output},
     peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0},
-    pio::{InterruptHandler, Pio},
+    pio::Pio,
     Peri,
 };
-use heapless::Vec;
 use static_cell::StaticCell;
 
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
-});
+use crate::Irqs;
 
 #[embassy_executor::task]
 async fn cyw43_task(
-    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
+    runner: cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>>,
 ) -> ! {
     runner.run().await
 }
@@ -43,8 +40,9 @@ pub async fn init_cyw43(
     p: Cyw43Peripherals,
     ip: Ipv4Cidr,
 ) -> (Stack<'static>, Control<'static>) {
-    let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    let fw = aligned_bytes!("../cyw43-firmware/43439A0.bin");
+    let clm = aligned_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    let nvram = aligned_bytes!("../cyw43-firmware/nvram_rp2040.bin");
 
     let pwr = Output::new(p.pin_23, Level::Low);
     let cs = Output::new(p.pin_25, Level::High);
@@ -57,25 +55,26 @@ pub async fn init_cyw43(
         cs,
         p.pin_24,
         p.pin_29,
-        p.dma_ch0,
+        dma::Channel::new(p.dma_ch0, Irqs),
     );
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    if spawner.spawn(cyw43_task(runner)).is_err() {
-        defmt::panic!("failed to start wifi chip task")
-    }
+    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw, nvram).await;
+    let Ok(runner_spawn_token) = cyw43_task(runner) else {
+        defmt::panic!("failed to create cyw43 task")
+    };
+    spawner.spawn(runner_spawn_token);
 
     control.init(clm).await;
     control
-        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .set_power_management(cyw43::PowerManagementMode::None)
         .await;
 
     let config = embassy_net::Config::ipv4_static(embassy_net::StaticConfigV4 {
         address: ip,
-        dns_servers: Vec::new(),
         gateway: None,
+        dns_servers: Default::default(),
     });
 
     let mut rng = RoscRng;
@@ -89,9 +88,10 @@ pub async fn init_cyw43(
         seed,
     );
 
-    if spawner.spawn(net_task(runner)).is_err() {
-        defmt::panic!("failed to start wifi task")
-    }
+    let Ok(net_spawn_token) = net_task(runner) else {
+        defmt::panic!("failed to create net task")
+    };
+    spawner.spawn(net_spawn_token);
 
     (stack, control)
 }

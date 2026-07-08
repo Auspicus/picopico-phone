@@ -1,1 +1,5 @@
 /target
+/audio/*.raw
+/audio/*.wav
+/audio/*.mp3
+/audio/*.pcm
