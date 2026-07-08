@@ -1,5 +1,3 @@
-use core::mem;
-
 use embassy_executor::Spawner;
 use embassy_rp::{
     gpio::{Level, Output},
@@ -9,7 +7,6 @@ use embassy_rp::{
     Peri,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
-use static_cell::StaticCell;
 
 use crate::Irqs;
 
@@ -35,7 +32,6 @@ pub enum MusicCommand {
 pub static MUSIC_CHANNEL: Channel<CriticalSectionRawMutex, MusicCommand, 1> = Channel::new();
 
 pub fn init_i2s(spawner: Spawner, p: I2sPeripherals) -> () {
-    // Setup pio state machine for i2s output
     let Pio {
         mut common, sm0, ..
     } = Pio::new(p.pio_1, Irqs);
@@ -69,62 +65,47 @@ pub fn init_i2s(spawner: Spawner, p: I2sPeripherals) -> () {
     spawner.spawn(i2s_token);
 }
 
-async fn play(i2s: &mut PioI2sOut<'static, PIO1, 0>, mut front_buffer: &mut [u32], mut back_buffer: &mut [u32], bytes: &[u8]) {
-    let (chunks, _) = bytes.as_chunks::<CHUNK_SIZE>();
-    for chunk in chunks {
-        // trigger transfer of front buffer data to the pio fifo
-        // but don't await the returned future, yet
-        let dma_future = i2s.write(front_buffer);
-        let mut idx = 0;
-
-        // fill back buffer with fresh audio samples before awaiting the dma future
-        let (frame_byte_chunks, _) = chunk.as_chunks::<FRAME_BYTES>();
-        for frame_bytes in frame_byte_chunks {
-            let frame: [u8; FRAME_BYTES] = frame_bytes.clone();
-            if let Some(s) = back_buffer.get_mut(idx) {
-                *s = u32::from_le_bytes(frame);
-            };
-            idx += 1;
-        }
-
-        // now await the dma future. once the dma finishes, the next buffer needs to be queued
-        // within DMA_DEPTH / SAMPLE_RATE = 8 / 48000 seconds = 166us
-        dma_future.await;
-        mem::swap(&mut back_buffer, &mut front_buffer);
+/// Play audio by DMA-ing directly from flash — no RAM buffer needed.
+///
+/// The audio data lives in .rodata (flash). A single DMA transfer covers the
+/// entire clip with no inter-buffer handoffs, so there is no FIFO underrun risk
+/// mid-clip regardless of what other tasks are doing.
+///
+/// The linker aligns .rodata to ≥4 bytes, so the align_to::<u32> cast will
+/// always have an empty prefix/suffix for correctly-sized audio files.
+async fn play(i2s: &mut PioI2sOut<'static, PIO1, 0>, bytes: &cyw43::Aligned<cyw43::A4, [u8]>) {
+    // Aligned<A4, _> guarantees 4-byte alignment, so align_to::<u32> will
+    // always produce an empty prefix/suffix for correctly-sized audio files.
+    let (prefix, words, suffix) = unsafe { bytes.align_to::<u32>() };
+    if !prefix.is_empty() || !suffix.is_empty() {
+        defmt::error!("audio data wrong length — skipping");
+        return;
     }
+    i2s.write(words).await;
 }
-
-const BUFFER_SIZE: usize = 24_000;
-const FRAME_BYTES: usize = 4;
-const CHUNK_SIZE: usize = BUFFER_SIZE * FRAME_BYTES;
 
 #[embassy_executor::task]
 pub async fn i2s_task(mut i2s: PioI2sOut<'static, PIO1, 0>) {
-    let ring = include_bytes!("../audio/ring.raw");
-    let disconnected = include_bytes!("../audio/disconnected.raw");
-    let connected = include_bytes!("../audio/connected.raw");
+    let ring = cyw43::aligned_bytes!("../audio/ring.raw");
+    let disconnected = cyw43::aligned_bytes!("../audio/disconnected.raw");
+    let connected = cyw43::aligned_bytes!("../audio/connected.raw");
 
-    // create two audio buffers (back and front) which will take turns being
-    // filled with new audio data and being sent to the pio fifo using dma
-    static DMA_BUFFER: StaticCell<[u32; BUFFER_SIZE * 2]> = StaticCell::new();
-    let dma_buffer = DMA_BUFFER.init_with(|| [0u32; BUFFER_SIZE * 2]);
-    let (back_buffer, front_buffer) = dma_buffer.split_at_mut(BUFFER_SIZE);
     let mut last: Option<MusicCommand> = None;
 
     loop {
         let cmd = MUSIC_CHANNEL.receive().await;
         match cmd {
             MusicCommand::Ring => {
-                play(&mut i2s, front_buffer, back_buffer, ring).await;
+                play(&mut i2s, ring).await;
             },
             MusicCommand::Connected => {
                 if last.is_none_or(|c| c != MusicCommand::Connected) {
-                    play(&mut i2s, front_buffer, back_buffer, connected).await;
+                    play(&mut i2s, connected).await;
                 }
             },
             MusicCommand::Disconnected => {
                 if last.is_none_or(|c| c != MusicCommand::Disconnected) {
-                    play(&mut i2s, front_buffer, back_buffer, disconnected).await;
+                    play(&mut i2s, disconnected).await;
                 }
             },
         }

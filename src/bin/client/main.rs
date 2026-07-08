@@ -30,6 +30,7 @@ const CYW43_GPIO_LED: u8 = 0;
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
+
     let (stack, mut control) = net::init_cyw43(
         spawner,
         Cyw43Peripherals {
@@ -71,8 +72,8 @@ async fn main(spawner: Spawner) {
         let mut tx_buffer = [0; 1024];
         let mut msg_buffer = [0; 1024];
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(20)));
-        socket.set_keep_alive(Some(Duration::from_secs(10)));
+        socket.set_timeout(Some(Duration::from_secs(30)));
+        socket.set_keep_alive(Some(Duration::from_secs(3)));
 
         'socket: loop {
             debug!("establishing socket");

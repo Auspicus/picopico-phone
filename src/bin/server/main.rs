@@ -6,8 +6,10 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_futures::select::{select, Either};
 use embassy_net::tcp::TcpSocket;
 use embassy_rp::gpio::{Input, Level, Pull};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 use picopico_phone::net::{self, Cyw43Peripherals};
@@ -23,6 +25,35 @@ pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
 ];
 
 const CYW43_GPIO_LED: u8 = 0;
+
+/// Signals a confirmed trigger event to the socket task.
+static TRIGGER_CHANNEL: Channel<CriticalSectionRawMutex, (), 1> = Channel::new();
+
+/// Watches PIN_5 for high→low transitions (with debounce) and sends
+/// a `()` to TRIGGER_CHANNEL for each confirmed press. Runs forever,
+/// independently of socket state so no button events are ever missed.
+#[embassy_executor::task]
+async fn trigger_task(mut trigger: Input<'static>) {
+    loop {
+        trigger.wait_for_high().await;
+
+        Timer::after(Duration::from_millis(500)).await;
+        if trigger.get_level() != Level::High {
+            debug!("high for less than 500ms!");
+            continue;
+        }
+
+        trigger.wait_for_low().await;
+
+        Timer::after(Duration::from_millis(500)).await;
+        if trigger.get_level() != Level::Low {
+            debug!("low for less than 500ms!");
+            continue;
+        }
+
+        TRIGGER_CHANNEL.send(()).await;
+    }
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -41,51 +72,50 @@ async fn main(spawner: Spawner) {
     )
     .await;
 
-    let mut trigger = Input::new(p.PIN_5, Pull::Up);
+    let trigger = Input::new(p.PIN_5, Pull::Up);
     control.start_ap_wpa2("cyw43", "password", 5).await;
+    control.gpio_set(CYW43_GPIO_LED, true).await;
 
-    'connection: loop {
+    let Ok(trigger_token) = trigger_task(trigger) else {
+        defmt::panic!("failed to create trigger task");
+    };
+    spawner.spawn(trigger_token);
+
+    loop {
         let mut rx_buffer = [0; 1024];
         let mut tx_buffer = [0; 1024];
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(20)));
-        socket.set_keep_alive(Some(Duration::from_secs(10)));
+        socket.set_timeout(Some(Duration::from_secs(30)));
+        socket.set_keep_alive(Some(Duration::from_secs(3)));
 
-        control.gpio_set(CYW43_GPIO_LED, false).await;
         info!("listening on tcp/169.254.1.1:1234");
         if let Err(e) = socket.accept(1234).await {
             warn!("accept error: {:?}", e);
             continue;
         }
-        control.gpio_set(CYW43_GPIO_LED, true).await;
 
+        info!("client connected");
+
+        let mut dead = [0u8; 1];
         loop {
-            trigger.wait_for_high().await;
-
-            // Confirm this change is stable after 500ms
-            // to ignore momentary voltage spike triggers
-            // due to noisy power supplies.
-            Timer::after(Duration::from_millis(500)).await;
-            if trigger.get_level() != Level::High {
-                debug!("high for less than 500ms!");
-                continue;
-            }
-
-            trigger.wait_for_low().await;
-
-            // Confirm this change is stable after 500ms
-            // to ignore momentary voltage spike triggers
-            // due to noisy power supplies.
-            Timer::after(Duration::from_millis(500)).await;
-            if trigger.get_level() != Level::Low {
-                debug!("low for less than 500ms!");
-                continue;
-            }
-
-            if socket.write_all("e".as_bytes()).await.is_err() {
-                warn!("write error");
-                continue 'connection;
+            // Race a trigger event against the socket closing. The server never
+            // expects to receive data, so a read returning 0 or an error means
+            // the client has disconnected — break immediately without waiting
+            // for the next button press.
+            match select(TRIGGER_CHANNEL.receive(), socket.read(&mut dead)).await {
+                Either::First(()) => {
+                    if socket.write_all(b"e").await.is_err() {
+                        warn!("write error — dropping connection");
+                        break;
+                    }
+                }
+                Either::Second(_) => {
+                    info!("client disconnected");
+                    break;
+                }
             }
         }
+
+        info!("connection lost, waiting for new client");
     }
 }
