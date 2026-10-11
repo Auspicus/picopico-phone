@@ -2,9 +2,9 @@ MEMORY {
     /*
      * The RP2350 has either external or internal flash.
      *
-     * 2 MiB is a safe default here, although a Pico 2 has 4 MiB.
+     * 1.5 MiB is safe to fit 2 partitions plus the partition table within the 4 MiB available to a Pico 2W.
      */
-    FLASH : ORIGIN = 0x10000000, LENGTH = 4096K
+    FLASH : ORIGIN = 0x10000000, LENGTH = 1536K
     /*
      * RAM consists of 8 banks, SRAM0-SRAM7, with a striped mapping.
      * This is usually good for performance, as it distributes load on
